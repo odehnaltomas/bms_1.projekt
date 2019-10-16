@@ -14,7 +14,7 @@ class Stream:
     def open_file(self, out=False):
         if not out:
             try:
-                return open(self.filename, 'r')
+                return open(self.filename, 'rb')
             except OSError as e:
                 print("ERROR: File \"" + self.filename + "\" cannot be opened.")
                 exit(2)
@@ -31,4 +31,5 @@ class Stream:
 
             packet = Packet(PACKET_SIZE, buffer)
             # print(packet.get_header())
+            break
 
