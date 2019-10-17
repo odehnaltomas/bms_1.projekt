@@ -14,5 +14,4 @@ class Packet:
         if sync_byte != 0x47:
             print("ERROR: Bad sync error!", file=sys.stderr)
             return False
-        
     
