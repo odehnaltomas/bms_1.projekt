@@ -46,6 +46,7 @@ class Packet:
             # TODO: not finished
             skip = 4 + len
             self.payload = self.buffer[skip:]
+        return True
 
     def print_header(self):
         print('')
