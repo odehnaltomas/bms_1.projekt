@@ -8,4 +8,3 @@ class Demultiplexor:
 
     def parse_PAT(self, packet):
         table_id = packet.payload[0]
-        
