@@ -24,8 +24,7 @@ class Stream:
         return open(filename, 'w')
 
     def parse_file(self):
-        # while True:
-        for i in range(0, 2):
+        while True:
             buffer = self.in_file.read(PACKET_SIZE)
             if buffer == '':
                 break
@@ -44,9 +43,14 @@ class Stream:
             if packet.transport_error_ind or packet.pid == 0x1fff:
                 print(len(packet.payload))
                 continue
-            # packet.print_header()
+            packet.print_header()
 
             if packet.pid == self.demultiplexor.PID_PAT:
+                self.demultiplexor.parse_PAT(packet)
+                # break
+            elif packet.pid == self.demultiplexor.PID_NIT:
+                self.demultiplexor.parse_NIT(packet)
+                break
 
             # break
 
