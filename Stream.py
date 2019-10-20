@@ -41,16 +41,16 @@ class Stream:
 
             # If there is error in the packet or pid is 0x1fff => skip this packet
             if packet.transport_error_ind or packet.pid == 0x1fff:
-                print(len(packet.payload))
                 continue
-            packet.print_header()
+            # packet.print_header()
 
-            if packet.pid == self.demultiplexor.PID_PAT:
+            if packet.pid == self.demultiplexor.PID_PAT and not self.demultiplexor.PAT_analysed:
                 self.demultiplexor.parse_PAT(packet)
                 # break
-            elif packet.pid == self.demultiplexor.PID_NIT:
+            elif packet.pid == self.demultiplexor.PID_NIT and not self.demultiplexor.NIT_analysed:
                 self.demultiplexor.parse_NIT(packet)
-                break
-
-            # break
-
+                # break
+            elif packet.pid == self.demultiplexor.PID_SDT:
+                self.demultiplexor.parse_SDT(packet)
+                # break
+        # TODO: add
