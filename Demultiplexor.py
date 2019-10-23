@@ -13,19 +13,26 @@ class Demultiplexor:
 
     DESCRIPTOR_NETWORK_NAME = 0x40
     DESCRIPTOR_TERRESTRIAL_DELIVERY_SYSTEM = 0x5A
+    DESCRIPTOR_SERVICE = 0x48
 
     def __init__(self):
         self.packet_num = 0
+
         self.PAT_analysed = False
         self.NIT_analysed = False
         self.SDT_analysed = False
+
         self.PAT_data = dict()
+
         self.network_name = ''
         self.network_id = 0
         self.bandwith = ''
         self.constellation = ''
         self.code_rate = ''
         self.guard_interval = ''
+
+        self.sdt_payload = bytearray()
+        self.adt_add_data = False
 
     def parse_PAT(self, packet):
         table_id = packet.payload[0]
@@ -52,9 +59,12 @@ class Demultiplexor:
 
             self.PAT_data[program_number] = network_pid
 
+            print(hex(network_pid))
+
             if program_number == 0:
                 self.PID_NIT = network_pid
             i += 4
+
 
         # self.print_PAT(table_id, section_length, self.PAT_data, transport_stream_id, version_number, current_next_indicator,
         #                section_number, last_section_number)
@@ -118,13 +128,67 @@ class Demultiplexor:
         #     return False
 
         section_length = ((packet.payload[1] & 0xF) << 8) + packet.payload[2]
-        print("current_next_indicator:", packet.payload[6] & 0x1)
-        transport_stream_id = (packet.payload[3] << 8) + packet.payload[4]
-        print("transport stream id:", transport_stream_id)
-        print("section length:", section_length)
-        print("section number:", packet.payload[7])
-        print("last section number:", packet.payload[8])
+
+        analyse = False
+        if packet.payload_unit_start_ind and len(self.sdt_payload) == 0:
+            self.adt_add_data = True
+        if packet.payload_unit_start_ind and len(self.sdt_payload) > 0:
+            analyse = True
+            self.adt_add_data = False
+            transport_stream_id = (packet.payload[3] << 8) + packet.payload[4]
+
+        if self.adt_add_data:
+            self.sdt_payload += packet.payload
+        if analyse:
+            self.SDT_analysed = True
+            skip = 0
+            while skip < section_length:
+                service_id = (self.sdt_payload[skip+11] << 8) + self.sdt_payload[skip+12]
+                descriptors_loop_length = ((self.sdt_payload[skip+11+3] & 0xF) << 8) + self.sdt_payload[skip+11+4]
+                skip += 5
+                self.parse_service_desc(skip + 11, descriptors_loop_length, self.sdt_payload)
+                skip += descriptors_loop_length
         return True
+
+    def parse_PTM(self, packet):
+        table_id = packet.payload[0]
+        if table_id != self.TABLE_ID_PMT:
+            print("ERROR: Bad table_id in PMT.", file=sys.stderr)
+            return False
+
+        section_length = ((packet.payload[2] & 0xF) << 8) + packet.payload[3]
+        program_number = (packet.payload[4] << 8) + packet.payload[5]
+
+        program_info_length = ((packet.payload[10] & 0xF) << 8) + packet.payload[11]
+
+        skip = program_info_length + 12
+        i = 0
+        while i < section_length:
+            elementary_pid = ((packet.payload[skip+i+1] & 0xF) << 8) + packet.payload[skip+i+2]
+
+    def check_PMT(self, packet_pid):
+        # If PID of packet is NIT PID, skip this packet
+        if packet_pid == self.PID_NIT:
+            return False
+        elif packet_pid in self.PAT_data.values():
+            return True
+        return False
+
+    def parse_service_desc(self, offset, length, payload):
+        service_provider_name = ''
+        service_name = ''
+        j = 0
+        while j < length:
+            desc_len = payload[offset+j+1]
+            if payload[offset + j] == self.DESCRIPTOR_SERVICE:
+                service_provider_name_length = payload[offset+j+3]
+                for i in range(0, service_provider_name_length):
+                    service_provider_name += chr(payload[offset+4+j+i])
+
+                service_name_length = payload[offset+j+4+service_provider_name_length]
+                for i in range(0, service_name_length):
+                    service_name += chr(payload[offset+5+service_provider_name_length+i])
+            return service_provider_name, service_name
 
     def parse_descriptors(self, offset, length, packet):
         j = 0
@@ -133,20 +197,10 @@ class Demultiplexor:
             if packet.payload[offset + j] == self.DESCRIPTOR_NETWORK_NAME:
                 network_name = ''
                 for i in range(0, desc_len):
-                    self.network_name += chr(packet.payload[offset + j +2+i])
-                print(network_name)
+                    self.network_name += chr(packet.payload[offset+j+2+i])
             elif packet.payload[offset + j] == self.DESCRIPTOR_TERRESTRIAL_DELIVERY_SYSTEM:
-                # descriptor_tag = packet.payload[offset+i]
-                # descriptor_length = packet.payload[offset+1]
-                # centre_frequency = (packet.payload[offset+i+2] << 8) + (packet.payload[offset+i+3] << 8)
-                # centre_frequency += (packet.payload[offset+i+4] << 8)
-                # centre_frequency += (packet.payload[offset + i + 5] << 8)
                 self.bandwith = self.get_bandwith(packet.payload[offset + j + 6] >> 5)
-                # priority = packet.payload[offset + i + 6] & 0x10
-                # time_slicing_indicator = packet.payload[offset + i + 6] & 0x8
-                # mpe_fec_indicator = packet.payload[offset + i + 6] & 0x4
                 self.constellation = self.get_constellation(packet.payload[offset + j + 7] >> 6)
-                # hiearchy_information = packet.payload[offset + i + 7] & 0x38
                 self.code_rate = self.get_code_rate(packet.payload[offset + j + 7] & 0x7)
                 code_rate_lp_stream = packet.payload[offset + j + 8] & 0xE0
                 self.guard_interval = self.get_guard_interval(packet.payload[offset + j + 8] & 0x18)
