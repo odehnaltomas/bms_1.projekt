@@ -43,7 +43,6 @@ class Packet:
             len += 1
 
         if self.adaptation_field_ctrl == 0x1 or self.adaptation_field_ctrl == 0x3:
-            # TODO: not finished
             skip = 4 + len
             self.payload = self.buffer[skip:]
         return True
