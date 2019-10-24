@@ -3,3 +3,7 @@
 //
 
 #include "Demultiplexor.h"
+
+void Demultiplexor::increment_packet_numb(uint16_t packet_pid) {
+	;
+}
