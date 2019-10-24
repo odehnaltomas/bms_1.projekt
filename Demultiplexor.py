@@ -34,6 +34,7 @@ class Demultiplexor:
             print("ERROR: Bad table_id in PAT.", file=sys.stderr)
             return False
 
+        print("pusi: ", packet.payload_unit_start_ind)
         section_length = ((packet.payload[1] & 0xf) << 8) + packet.payload[2]
         transport_stream_id = (packet.payload[3] << 8) + packet.payload[4]
         version_number = packet.payload[5] & 0x3E
