@@ -25,10 +25,11 @@ void Stream::parse_file() {
 			break;
 		}
 
-		cout << "stream:" << hex << +buffer[0];
-
 		Packet packet = Packet(buffer, PACKET_SIZE);
 		bool bad_sync_byte = packet.parse_header();
+
+		demultiplexor.increment_packet_numb();
+		demultiplexor.increment_packet_num_by_pid(packet.get_pid());
 
 		if(!bad_sync_byte) {
 			continue;
@@ -37,8 +38,25 @@ void Stream::parse_file() {
 			continue;
 		}
 
-		demultiplexor.increment_packet_numb(packet.get_pid());
 
-//		if(packet.get_pid() == 0)
+		if(packet.get_pid() == demultiplexor.PID_PAT && !demultiplexor.is_pat_analysed()) {
+			demultiplexor.parse_pat(packet);
+		}
+		else if(packet.get_pid() == demultiplexor.PID_NIT && !demultiplexor.is_nit_analysed()) {
+			demultiplexor.parse_nit(packet);
+		}
+		else if(packet.get_pid() == demultiplexor.PID_SDT && !demultiplexor.is_sdt_analysed()) {
+			demultiplexor.parse_sdt(packet);
+		}
+		else if(demultiplexor.is_pat_analysed() && demultiplexor.check_pmt(packet.get_pid())) {
+			demultiplexor.parse_pmt(packet);
+		}
+
 	}
+//	demultiplexor.print_pat_data();
+//	demultiplexor.print_nit_data();
+//	demultiplexor.print_sdt_data();
+	demultiplexor.calculate_bitrate();
+	demultiplexor.bind_pids_and_counters();
+	demultiplexor.save_data_to_file(output_file);
 };

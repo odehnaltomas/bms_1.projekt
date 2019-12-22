@@ -165,7 +165,7 @@ class Demultiplexor:
         skip = program_info_length + 12
         i = 0
         while i < section_length:
-            elementary_pid = ((packet.payload[skip+i+1] & 0xF) << 8) + packet.payload[skip+i+2]
+            elementary_pid = ((packet.payload[skip+i+1] & 0x1F) << 8) + packet.payload[skip+i+2]
 
     def check_PMT(self, packet_pid):
         # If PID of packet is NIT PID, skip this packet
